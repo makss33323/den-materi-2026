@@ -1110,9 +1110,11 @@ function isPhoneLike() {
   try { return window.matchMedia("(pointer: coarse)").matches && window.innerWidth < 920; }
   catch (e) { return false; }
 }
-var orientDismissed = false;
+var ORIENT_GAME = { room: "1", mama: "1", plat: "2", flow: "3", quest: "4" };
+var orientDismissed = {};   /* уведомление о повороте закрыто в этих играх */
 function dismissOrient() {
-  orientDismissed = true;
+  var g = ORIENT_GAME[ST.screen] || ST.screen;
+  orientDismissed[g] = true;
   var ov = document.getElementById("orientOverlay");
   if (ov) ov.classList.remove("on");
 }
@@ -1124,7 +1126,8 @@ function checkOrient() {
   try { portrait = window.matchMedia("(orientation: portrait)").matches; } catch (e) {}
   var bad = (need === "portrait") ? !portrait : portrait;
   if (!bad) { ov.classList.remove("on"); return; }
-  if (orientDismissed) { ov.classList.remove("on"); return; }   /* закрыли крестиком — больше не достаём */
+  var qg = ORIENT_GAME[ST.screen] || ST.screen;
+  if (orientDismissed[qg]) { ov.classList.remove("on"); return; }   /* закрыли в этой игре — в ней не достаём */
   document.getElementById("orientText").textContent =
     bad ? (need === "portrait" ? "Разверни телефон вертикально" : "Разверни телефон горизонтально") : "";
   ov.classList.toggle("on", bad);
