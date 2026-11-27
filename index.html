@@ -779,6 +779,11 @@
               box-shadow:0 4px 0 #ded3d8; }
   .prizeBtn.ready { background:#ff9ec4; border-color:#e88bb2; color:#5a2338; box-shadow:0 4px 0 #d67ba4; }
   .prizeBtn:active { transform:translateY(2px); box-shadow:0 2px 0 #ded3d8; }
+  /* V14: подсказка серой кнопки — НА МЕНЮ (показывается сразу под кнопкой, гаснет через 3.5с) */
+  .prizeNote { display:none; margin:10px auto 0; padding:10px 16px; max-width:min(88vw,520px);
+               border-radius:14px; background:#fff3f7; border:2px solid #f0c6d8;
+               color:#8a4a63; font-weight:700; font-size:0.95rem; text-align:center; }
+  .prizeNote.on { display:block; }
   /* V11: плитки компактнее на узком портретном экране — 2 колонки, меню целиком в кадре */
   @media (max-width:460px) and (orientation:portrait) {
     .tiles { gap:12px; }
@@ -816,6 +821,7 @@
   </div>
   <div class="chip" id="bestLbl" style="margin-top:22px">Рекорд звёзд: 0</div>
   <button class="prizeBtn" id="prizeBtn" onclick="tryPrize()">🎁 Забрать приз</button>
+  <div class="prizeNote" id="prizeNote">🎁 Приз появится, когда все 4 игры будут пройдены!</div>
   <button class="btn warn" id="resetBtnM" onclick="resetMenu()" style="margin-top:14px">↺ Сбросить прогресс</button>
   <div class="linkRow">
     <a class="linkBtn" href="https://vk.ru/itcubeshakhty" target="_blank" rel="noopener">💬 Мы ВКонтакте</a>
@@ -1164,7 +1170,13 @@ function refreshMenu() {
 function prizeReady() { return ST.run && ST.run.done && ST.plat && ST.plat.done && ST.flow && ST.flow.done && ST.quest && ST.quest.done; }
 function tryPrize() {
   sClick();
-  if (!prizeReady()) { showNote("🎁 Приз появится, когда все 4 игры будут пройдены!"); return; }
+  var pn = document.getElementById("prizeNote");
+  if (!prizeReady()) {
+    /* V14: подсказка — прямо на меню (была через showNote — элемент игры 1, в меню невидим) */
+    if (pn) { pn.classList.add("on"); clearTimeout(tryPrize._t); tryPrize._t = setTimeout(function () { pn.classList.remove("on"); }, 3500); }
+    return;
+  }
+  if (pn) pn.classList.remove("on");
   var ov = document.getElementById("congratsOverlay");
   if (ov) ov.classList.add("on");
 }
