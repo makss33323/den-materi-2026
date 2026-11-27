@@ -762,18 +762,31 @@
   .linkBtn:active { transform:translateY(2px); box-shadow:0 1px 0 #e2d3b6; }
   .foot { line-height:1.35; padding:0 14px; text-align:center; }
   #congratsOverlay { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center;
-                     padding:16px; background:rgba(46,26,10,.55); }
+                     padding:8px; background:rgba(46,26,10,.55); }
   #congratsOverlay.on { display:flex; }
-  .congratsCard { position:relative; max-width:min(92vw,560px); aspect-ratio:765/1024; max-height:86vh;
-                  background:#fff8ec center/cover no-repeat; border-radius:20px;
-                  box-shadow:0 14px 40px rgba(0,0,0,.35); overflow:hidden;
-                  display:flex; flex-direction:column; justify-content:flex-end; align-items:center; }
+  /* V11 (2026-11-27): открытка крупно — на весь экран по высоте (края подрезаются, как в галерее) */
+  .congratsCard { position:relative; height:min(94vh, 1000px); aspect-ratio:765/1024; max-width:97vw;
+                  overflow:hidden; border-radius:20px; box-shadow:0 14px 40px rgba(0,0,0,.35); }
   .congratsCard img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
-  .congratsClose { position:relative; z-index:2; margin:0 0 12px; min-height:48px; min-width:150px;
+  .congratsClose { position:absolute; left:50%; transform:translateX(-50%); bottom:16px; z-index:2; min-height:48px; min-width:150px;
                    border-radius:999px; border:2px solid #d8a9bd; background:rgba(255,248,236,.92);
                    color:#7a3b52; font-weight:800; font-size:1rem; padding:8px 20px;
                    box-shadow:0 3px 0 rgba(150,90,120,.25); }
-  .congratsClose:active { transform:translateY(2px); box-shadow:0 1px 0 rgba(150,90,120,.25); }
+  .congratsClose:active { transform:translateX(-50%) translateY(2px); box-shadow:0 1px 0 rgba(150,90,120,.25); }
+  /* V11: кнопка «Забрать приз» — серая, пока не пройдены все 4 игры, розовая — когда пройдены */
+  .prizeBtn { display:block; margin:14px auto 0; min-height:52px; min-width:230px; border-radius:999px;
+              border:3px solid #ddd0d4; background:#f2eff1; color:#9a8b90; font-weight:800; font-size:1.05rem;
+              box-shadow:0 4px 0 #ded3d8; }
+  .prizeBtn.ready { background:#ff9ec4; border-color:#e88bb2; color:#5a2338; box-shadow:0 4px 0 #d67ba4; }
+  .prizeBtn:active { transform:translateY(2px); box-shadow:0 2px 0 #ded3d8; }
+  /* V11: плитки компактнее на узком портретном экране — 2 колонки, меню целиком в кадре */
+  @media (max-width:460px) and (orientation:portrait) {
+    .tiles { gap:12px; }
+    .tile { width:150px; height:150px; border-radius:20px; padding:10px; gap:4px; }
+    .tile .num { font-size:56px; }
+    .tile .cap { font-size:15px; }
+    .tile .soon { font-size:11px; }
+  }
 
 </style>
 </head>
@@ -786,7 +799,7 @@
   <div class="tiles">
     <button class="tile t1" id="tile1" onclick="openGame1()">
       <span class="num">1</span><span class="cap" id="tile1cap">🌷 День мамы</span>
-      <span class="soon">📱 горизонтально</span>
+      <span class="soon">📱 вертикально</span>
     </button>
     <button class="tile t2" id="tile2" onclick="openPlat()">
       <span class="num">2</span><span class="cap" id="tile2cap">💐 Платформер</span>
@@ -802,6 +815,7 @@
     </button>
   </div>
   <div class="chip" id="bestLbl" style="margin-top:22px">Рекорд звёзд: 0</div>
+  <button class="prizeBtn" id="prizeBtn" onclick="tryPrize()">🎁 Забрать приз</button>
   <button class="btn warn" id="resetBtnM" onclick="resetMenu()" style="margin-top:14px">↺ Сбросить прогресс</button>
   <div class="linkRow">
     <a class="linkBtn" href="https://vk.ru/itcubeshakhty" target="_blank" rel="noopener">💬 Мы ВКонтакте</a>
@@ -1104,7 +1118,15 @@ function showScreen(name) {
     if (el) el.classList.toggle("on", ids[i] === "s" + name.charAt(0).toUpperCase() + name.slice(1));
   }
   if (name === "menu") refreshMenu();
-  if (name === "mama") { renderMama(); if (ST.run && !ST.run.cur) nextCustomer(); }   /* V9: люди приходят сразу при входе, не после перезагрузки */
+  if (name === "mama") {
+    /* V11: рассинхрон DOM и сохранения (призраки после сброса) — пересобираем */
+    var qPf = document.getElementById("playfield");
+    var qSaved = (ST.run && ST.run.items) ? ST.run.items.length : 0;
+    if (qPf && qPf.querySelectorAll(".item").length !== qSaved) rebuildField();
+    clampItems();   /* V11: предметы, выпавшие за поле (гонка спавна/поворот), обратно в поле */
+    renderMama();
+    if (ST.run && !ST.run.cur) nextCustomer();   /* V10: люди приходят сразу при входе */
+  }
   if (name === "plat") { platStart(); setTimeout(fitPlat, 60); }
   if (name === "flow") { renderFlow(); setTimeout(fitFlow, 60); }
   checkOrient();
@@ -1134,6 +1156,17 @@ function refreshMenu() {
   var cap1 = document.getElementById("tile1cap");
   if (cap1) cap1.textContent = "🌷 День мамы" + ((ST.run && ST.run.done) ? " ✓" : "");
   maybeCongrats();   /* V10: все игры пройдены — поздравление на главном экране */
+  var pb = document.getElementById("prizeBtn");
+  if (pb) pb.classList.toggle("ready", prizeReady());   /* V11: розовая, когда все пройдены */
+}
+
+/* V11: кнопка «Забрать приз» */
+function prizeReady() { return ST.run && ST.run.done && ST.plat && ST.plat.done && ST.flow && ST.flow.done && ST.quest && ST.quest.done; }
+function tryPrize() {
+  sClick();
+  if (!prizeReady()) { showNote("🎁 Приз появится, когда все 4 игры будут пройдены!"); return; }
+  var ov = document.getElementById("congratsOverlay");
+  if (ov) ov.classList.add("on");
 }
 
 /* V10: поздравление, когда пройдены все 4 игры */
@@ -1237,7 +1270,8 @@ var drag = null;
 
 function freeSpot(w, h) {
   var pf = document.getElementById("playfield");
-  var W = pf.clientWidth || 700, H = pf.clientHeight || 540;
+  var W = pf.clientWidth || Math.min(700, Math.max(240, (window.innerWidth || 800) - 80));   /* V11: скрытое поле — реальные ширины */
+  var H = pf.clientHeight || Math.min(540, Math.max(260, (window.innerHeight || 800) - 200));
   for (var t = 0; t < 40; t++) {
     var x = 14 + Math.random() * Math.max(10, W - w - 28);
     var y = 12 + Math.random() * Math.max(10, H - h - 24);
@@ -1340,6 +1374,7 @@ function thermosDispense() {
 
 function thermoGo() {
   sClick();
+  if (ST.screen !== "mama") showScreen("mama");   /* V11: поле должно быть видимым, иначе freeSpot возьмёт fallback */
   if (!ST.run || !ST.run.opened) {
     ST.run.opened = true;
     for (var s0 = 0; s0 < FIELD_MAX; s0++) { var b = dispenseRoll(); if (!spawnOne(b.kind, b.tier)) break; }
@@ -1579,6 +1614,21 @@ function renderMama() {
   var rs = document.getElementById("roomStars");
   if (rs) rs.textContent = "⭐ " + (ST.run.score || 0);
 }
+
+/* V11: вытянуть предметы внутрь поля (после поворота/гонки спавна) */
+function clampItems() {
+  var pf = document.getElementById("playfield");
+  if (!pf) return;
+  var W = pf.clientWidth, H = pf.clientHeight;
+  if (!W || !H) return;
+  for (var i = 0; i < ITEMS.length; i++) {
+    var it = ITEMS[i];
+    var nx = Math.min(Math.max(it.x, 14), Math.max(14, W - it.w - 14));
+    var ny = Math.min(Math.max(it.y, 12), Math.max(12, H - it.h - 12));
+    if (nx !== it.x || ny !== it.y) { it.x = nx; it.y = ny; it.bx = nx; it.by = ny; place(it); }
+  }
+}
+window.addEventListener("resize", function () { if (ST.screen === "mama") clampItems(); });
 
 /* ---------- сбросы ---------- */
 var resetArmed = false;
