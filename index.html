@@ -1566,8 +1566,8 @@ function tryServe(it, cx, cy) {
 function addStars(n) {
   ST.run.score += n;
   if (ST.run.score > (ST.best || 0)) { ST.best = ST.run.score; }
-  /* V10: больше 30 очков — игра 1 пройдена (без уведомления, ✓ на плитке) */
-  if (ST.run.score > 30 && !ST.run.done) ST.run.done = true;
+  /* V13: 20 звёзд — игра 1 пройдена (без уведомления, ✓ на плитке; Максим, 2026-11-27) */
+  if (ST.run.score >= 20 && !ST.run.done) ST.run.done = true;
   save();
   renderMama();
 }
@@ -2299,7 +2299,7 @@ const QROOMS = [
     deco: ['🪴', '🧺', '🪣', '🌞', '🪟', '🧤'], img: 'romashka' },
   { name: 'Комната сына',   object: '💻', letter: 'М', hint: 'Цветы кончились. Теперь сын подключился!', bunkbed: true,
     deco: ['🛏️', '🎮', '🎸', '🛴', '🧦', '🏳️'], img: 'noutbuk' },
-  { name: 'Папка сына',     object: '📁', letter: 'А', hint: 'В папке лежит первое слово алфавита.', drawers: true,
+  { name: 'Папка сына',     object: '📁', letter: 'А', hint: 'В папке лежит первая буква алфавита.', drawers: true,
     deco: ['🗄️', '🖨️', '📎', '🗂️', '✏️', '📌'], img: 'papka' },
   { name: 'Твой телефон',   object: '📱', letter: 'М', hint: 'Проверь пропущенные — тут буква.', onbed: true,
     deco: ['📵', '🔋', '🎧', '⌚', '💳', '🔑'], img: 'telefon' },
