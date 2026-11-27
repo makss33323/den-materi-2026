@@ -707,6 +707,8 @@
 
 
   /* ==== V6: оверлей ориентации — крестик ==== */
+  /* V9: подсветка наведением на ЛЮБОГО покупателя (а не только активного) */
+  .custCard.over { border-color:#f0a63c; transform:scale(1.04); }
   #orientOverlay .orientClose {
     position:absolute; top:10px; right:10px; width:54px; height:54px;
     border-radius:50%; border:3px solid #b9a8ff; background:rgba(255,255,255,.14);
@@ -732,8 +734,8 @@
   /* ==== V6: игра 3 (цветочки) — сцена 1040x516 масштабируется, как в игре 4 ==== */
   /* V8 (2026-11-27): поле цветов расширено x2 по горизонтали (1040 -> 2080), решение Максима */
   #flowStageWrap { position:relative; align-self:stretch; width:100%; margin:10px 14px 14px; overflow:hidden; }
-  #flowStage { position:absolute; left:0; right:0; top:0; width:2080px; height:516px;
-               margin:0 auto; transform-origin:top center; }
+  #flowStage { position:absolute; left:0; top:0; width:2080px; height:516px;
+               margin:0; transform-origin:top left; }   /* V9: left ставит JS (fitStage centerX) — иначе 2080px-сцена уезжала вправо за экран */
   /* при масштабе ~0.5 (после x2 ширины) текст в облачках ужался бы до нечитаемого */
   #flowStage .flower .bub { font-size:24px; padding:6px 14px; border-width:3px; }
   #flowStage #finFlower .finCap { font-size:26px; padding:4px 18px; }
@@ -1017,7 +1019,7 @@ window.__errors = [];
 window.onerror = function(m, s, l, c) { window.__errors.push(m + " @" + l + ":" + c); };
 
 var KEY = "vasya_games_v3";
-var FIELD_MAX = 10;      /* максимум предметов на экране */
+var FIELD_MAX = 20;      /* до 20 предметов на столе (Максим, 2026-11-27) */
 var QUEUE_LEN = 3;       /* активный + 2 ждущих */
 var ORIENTATION = { menu: "any", room: "portrait", mama: "portrait", plat: "landscape", flow: "landscape", quest: "landscape", stub: "any" };
 
@@ -1070,7 +1072,7 @@ function showScreen(name) {
     if (el) el.classList.toggle("on", ids[i] === "s" + name.charAt(0).toUpperCase() + name.slice(1));
   }
   if (name === "menu") refreshMenu();
-  if (name === "mama") { renderMama(); if (ST.run && ST.run.opened && !ST.run.cur) nextCustomer(); }
+  if (name === "mama") { renderMama(); if (ST.run && !ST.run.cur) nextCustomer(); }   /* V9: люди приходят сразу при входе, не после перезагрузки */
   if (name === "plat") { platStart(); setTimeout(fitPlat, 60); }
   if (name === "flow") { renderFlow(); setTimeout(fitFlow, 60); }
   checkOrient();
@@ -1271,7 +1273,7 @@ function salut(x, y) {
    ничего не удаляет и не создаёт, просто сообщает об этом */
 function thermosDispense() {
   if (ITEMS.length >= FIELD_MAX) {
-    showNote("На столе уже 10 предметов!");
+    showNote("На столе уже " + FIELD_MAX + " предметов!");
     return 0;
   }
   var added = 0;
@@ -1298,8 +1300,8 @@ function thermoGo() {
     for (var s0 = 0; s0 < FIELD_MAX; s0++) { var b = dispenseRoll(); if (!spawnOne(b.kind, b.tier)) break; }
     fieldReady = true;
     save(); renderMama();
-    document.getElementById("hintLbl").textContent = "🧩 Отдавай покупателю, что он просит! Нет такого — жми на термос, он выдаст новое!";
-    nextCustomer();
+    document.getElementById("hintLbl").textContent = "🧩 Отдавай любому из покупателей то, что в его мысли! Нет вида — жми на термос!";
+    if (!ST.run.cur) nextCustomer();   /* люди уже могли прийти при входе */
   } else {
     thermosDispense(); /* термос выдаёт новые предметы (стол полон — старый уходит) */
   }
@@ -1325,11 +1327,11 @@ window.addEventListener("pointermove", function(e) {
   it.x = Math.max(-40, Math.min(pf.clientWidth - it.w + 40, e.clientX - r.left - drag.ox));
   it.y = Math.max(-30, Math.min(pf.clientHeight - it.h + 30, e.clientY - r.top - drag.oy));
   place(it);
-  var cz = document.getElementById("custActive");
-  if (cz) {
-    var cr = cz.getBoundingClientRect();
-    var over = e.clientX >= cr.left && e.clientX <= cr.right && e.clientY >= cr.top - 20 && e.clientY <= cr.bottom + 20;
-    cz.classList.toggle("over", over);
+  var cards = document.querySelectorAll("#custZone .custCard");
+  for (var ci = 0; ci < cards.length; ci++) {
+    var cr = cards[ci].getBoundingClientRect();
+    var over = e.clientX >= cr.left - 24 && e.clientX <= cr.right + 24 && e.clientY >= cr.top - 20 && e.clientY <= cr.bottom + 20;
+    cards[ci].classList.toggle("over", over);
   }
   e.preventDefault();
 }, { passive: false });
@@ -1338,16 +1340,9 @@ window.addEventListener("pointerup", function(e) {
   var it = drag.it;
   drag = null;
   it.el.classList.remove("drag");
-  var cz = document.getElementById("custActive");
-  var overCust = false;
-  if (cz) {
-    cz.classList.remove("over");
-    var cr = cz.getBoundingClientRect();
-    overCust = e.clientX >= cr.left - 24 && e.clientX <= cr.right + 24 &&
-               e.clientY >= cr.top - 40 && e.clientY <= cr.bottom + 24;
-  }
-  if (overCust) tryServe(it);
-  else tryMerge(it);
+  var cards = document.querySelectorAll("#custZone .custCard");
+  for (var ci = 0; ci < cards.length; ci++) cards[ci].classList.remove("over");
+  tryServe(it, e.clientX, e.clientY);   /* V9: подать любому из трёх; мимо всех — слияние */
 });
 /* сорванный палец/жест — вернуть предмет и отпустить драг (иначе все предметы «застывают») */
 function endDragReturn() {
@@ -1445,32 +1440,47 @@ function nextCustomer() {
   renderMama();
 }
 
-function tryServe(it) {
-  var cur = ST.run.cur;
-  if (!cur) { goBack(it); return; }
-  if (it.kind !== cur.kind || it.tier !== cur.tier) {
+function tryServe(it, cx, cy) {
+  /* V9: подать можно ЛЮБОМУ из трёх; ушедшего заменяет новый; очередь не ждём */
+  var cards = document.querySelectorAll("#custZone .custCard");
+  var hit = -1;
+  if (typeof cx === "number") {
+    for (var i = 0; i < cards.length; i++) {
+      var r = cards[i].getBoundingClientRect();
+      if (cx >= r.left - 24 && cx <= r.right + 24 && cy >= r.top - 40 && cy <= r.bottom + 24) { hit = i; break; }
+    }
+  }
+  if (hit < 0) { tryMerge(it); return; }
+  var req = (hit === 0) ? ST.run.cur : ST.run.queue[hit - 1];
+  if (!req) { goBack(it); return; }
+  if (it.kind !== req.kind || it.tier !== req.tier) {
     sFail();
-    var card = document.getElementById("custActive");
-    if (card) { card.classList.add("wrong"); setTimeout(function() { card.classList.remove("wrong"); }, 400); }
+    cards[hit].classList.add("wrong");
+    setTimeout(function() { cards[hit].classList.remove("wrong"); }, 400);
     var h = document.getElementById("hintLbl");
     h.textContent = "🙈 Покупатель просит другое! Жми термос — он выдаст нужное!";
     goBack(it);
     return;
   }
   /* подача */
-  addStars(cur.tier);
-  fxTextAtCust("+" + cur.tier + "⭐");
+  addStars(req.tier);
+  fxTextAtCust("+" + req.tier + "⭐", cards[hit]);
   sServe();
   removeItem(it);
-  var card = document.getElementById("custActive");
-  if (card) card.classList.add("served");
-  ST.run.cur = null;
+  cards[hit].classList.add("served");
+  if (hit === 0) {
+    ST.run.cur = ST.run.queue.length ? ST.run.queue.shift() : makeRequest();
+    while (ST.run.queue.length < QUEUE_LEN - 1) ST.run.queue.push(makeRequest());
+  } else {
+    ST.run.queue[hit - 1] = makeRequest();
+  }
   save();
   setTimeout(function() {
-    nextCustomer();
+    renderCustomers();
+    renderMama();
     var h = document.getElementById("hintLbl");
-    if (h) h.textContent = "🧩 Отдавай покупателю то, что в его мысли! Нет такого — жми термос!";
-  }, 600);
+    if (h) h.textContent = "🧩 Отдавай любому из покупателей то, что в его мысли! Нет вида — жми термос!";
+  }, 550);
 }
 
 function addStars(n) {
@@ -1490,8 +1500,10 @@ function fxText(x, y, txt) {
   pf.appendChild(s);
   setTimeout(function() { if (s.parentNode) s.parentNode.removeChild(s); }, 950);
 }
-function fxTextAtCust(txt) {
-  var b = document.getElementById("custBubble");
+function fxTextAtCust(txt, card) {
+  var b = card || document.getElementById("custActive");
+  b = b ? b.querySelector(".bubble") : null;
+  if (!b) b = document.getElementById("custBubble");
   if (!b) return;
   var r = b.getBoundingClientRect();
   var pf = document.getElementById("playfield");
@@ -2145,21 +2157,29 @@ function markQuestDone() {
   try { if (!ST.quest) ST.quest = { done: false }; ST.quest.done = true; save(); } catch (e) {}
 }
 
-/* ---------- V6: подгонка сцены под экран (как в игре 4) ---------- */
-function fitStage(stageId, innerId, W, H) {
+/* ---------- V9: подгонка сцены под экран (обновлено 2026-11-27) ---------- */
+/* o.hMult — множитель бюджета высоты (игра 2: 1.4 = +40% к 80%);
+   o.allowScroll — разрешить окно выше экрана (скролл, прячущий шапку — фича);
+   o.centerX — центр визуального бокса ставит JS (иначе 2080px-сцена уезжала вправо) */
+function fitStage(stageId, innerId, W, H, o) {
+  o = o || {};
   var st = document.getElementById(stageId), el = document.getElementById(innerId);
   if (!st || !el) return;
   var sw = st.clientWidth;
   if (!sw) return;
-  var avail = Math.max(180, Math.min((window.innerHeight || 800) * 0.8, (window.innerHeight || 800) - 88));   /* окно игры ~80% высоты экрана, но не выше шапки+отступов (Максим, 2026-11-27) */
+  var ih = window.innerHeight || 800;
+  var avail = Math.max(180, ih * 0.8 * (o.hMult || 1));
+  if (!o.allowScroll) avail = Math.min(avail, ih - 88);
   var s = Math.min(sw / W, avail / H);
   if (!isFinite(s) || s <= 0) return;
-  if (s > 1.3) s = 1.3;
+  var cap = o.cap || 1.3;
+  if (s > cap) s = cap;
   el.style.transform = "scale(" + s + ")";
   st.style.height = Math.round(H * s) + "px";
+  if (o.centerX) el.style.left = Math.round((sw - W * s) / 2) + "px";
 }
-function fitPlat() { fitStage("platStage", "platCanvas", 1280, 720); }
-function fitFlow() { fitStage("flowStageWrap", "flowStage", 2080, 516); }
+function fitPlat() { fitStage("platStage", "platCanvas", 1280, 720, { hMult: 1.4, allowScroll: true }); }
+function fitFlow() { fitStage("flowStageWrap", "flowStage", 2080, 516, { centerX: true }); }
 
 
 'use strict';
@@ -2494,12 +2514,26 @@ function qOnFindObject(e) {
   // предмет перелетает НА стол: если он внутри мебели (кровать/картина) —
   // переносим в комнату, иначе полёт посчитается от размеров мебели
   const roomEl = document.getElementById('room');
+  /* V9: appendChild сбрасывал CSS-переход — предмет телепортировался на стол.
+     Фикс: запоминаем текущее визуальное место предмета, переносим, мгновенно
+     ставим его туда же (transition:none), форсируем reflow и только потом
+     анимируем полёт на стол. */
+  const rr = roomEl.getBoundingClientRect();
+  const qScale = (rr.width / roomEl.offsetWidth) || 1;
+  const orr = obj.getBoundingClientRect();
+  const oldLeft = (orr.left - rr.left) / qScale;
+  const oldBottom = (rr.bottom - orr.bottom) / qScale;
   if (obj.parentElement !== roomEl) roomEl.appendChild(obj);
   obj.classList.remove('hidden-item');
   obj.classList.add('found');
+  obj.style.transition = 'none';
   obj.style.transform = '';  // убрать центрирование из-за картины
-  obj.style.left = 'calc(' + obj.dataset.tableLeft + '% + 35px)';
+  obj.style.left = oldLeft + 'px';
   obj.style.top = 'auto';
+  obj.style.bottom = oldBottom + 'px';
+  void obj.offsetWidth;      // фиксируем стартовую точку полёта
+  obj.style.transition = ''; // возвращаем CSS-переходы
+  obj.style.left = 'calc(' + obj.dataset.tableLeft + '% + 35px)';
   obj.style.bottom = 'calc(20% + 96px)';
   qSave();
   // облако с буквой — после прилёта на стол
