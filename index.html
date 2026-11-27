@@ -1186,6 +1186,9 @@ function openCongrats() {
   var pn = document.getElementById("prizeNote");
   if (pn) pn.classList.remove("on");
   showScreen("congrats");
+  /* V16b: сейв не должен хранить screen="congrats" — старая версия при загрузке
+     показывала пустой экран (экрана sCongrats у неё нет) */
+  ST.screen = "menu"; save();
 }
 
 /* V10: поздравление, когда пройдены все 4 игры */
@@ -2247,6 +2250,9 @@ function resetFlow() {
 
 /* ---------- старт ---------- */
 (function init() {
+  /* V16b: сейв screen="congrats" или старая версия без экрана sCongrats
+     показывали ПУСТОЙ сайт при загрузке — старт всегда из меню */
+  if (ST.screen === "congrats" || !ST.screen) ST.screen = "menu";
   var needRebuild = ST.screen === "mama" && ST.run && ST.run.opened;
   if (needRebuild) {
     showScreen("mama");
