@@ -2726,5 +2726,15 @@ try {
 
 </script>
 
+<script>
+/* V12: скрытый счётчик (Abacus). Значение смотрится по URL: /get/<ns>/<key> */
+try {
+  if (location.protocol === "https:") {
+    var _dmCount = function (k) { var x = new XMLHttpRequest(); x.open("GET", "https://abacus.jasoncameron.dev/hit/makss33323.github.io/" + k); x.timeout = 4000; try { x.send(); } catch (e) {} };
+    if (localStorage.getItem("dm_counted") !== "1") { localStorage.setItem("dm_counted", "1"); _dmCount("dm-visitors"); }
+    _dmCount("dm-views");
+  }
+} catch (e) {}
+</script>
 </body>
 </html>
