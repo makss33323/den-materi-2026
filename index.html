@@ -764,6 +764,12 @@
   #congratsOverlay { position:fixed; inset:0; z-index:70; display:none; align-items:center; justify-content:center;
                      padding:8px; background:rgba(46,26,10,.55); }
   #congratsOverlay.on { display:flex; }
+  /* V15 (2026-11-27): класс .on ставился, но Chrome не перерисовывал fixed-слой — картинка
+     проявлялась только при переходе в игру. Лечение (по SO/chromium 153738): свой слой
+     translateZ + анимация появления, форс-рефлоу в JS */
+  #congratsOverlay { transform: translateZ(0); }
+  #congratsOverlay.on { animation: ovIn .18s ease; }
+  @keyframes ovIn { from { opacity:0 } to { opacity:1 } }
   /* V11 (2026-11-27): открытка крупно — на весь экран по высоте (края подрезаются, как в галерее) */
   .congratsCard { position:relative; height:min(94vh, 1000px); aspect-ratio:765/1024; max-width:97vw;
                   overflow:hidden; border-radius:20px; box-shadow:0 14px 40px rgba(0,0,0,.35); }
@@ -1177,15 +1183,20 @@ function tryPrize() {
     return;
   }
   if (pn) pn.classList.remove("on");
+  openCongrats();
+}
+/* V15: открытие открытки с принудительной перерисовкой слоя */
+function openCongrats() {
   var ov = document.getElementById("congratsOverlay");
-  if (ov) ov.classList.add("on");
+  if (!ov) return;
+  ov.classList.add("on");
+  void ov.offsetWidth;   /* форс-рефлоу: кадр перерисовывается сразу */
 }
 
 /* V10: поздравление, когда пройдены все 4 игры */
 function maybeCongrats() {
   var all = ST.run && ST.run.done && ST.plat && ST.plat.done && ST.flow && ST.flow.done && ST.quest && ST.quest.done;
-  var ov = document.getElementById("congratsOverlay");
-  if (all && ov) ov.classList.add("on");
+  if (all) openCongrats();
 }
 function closeCongrats() { sClick(); var ov = document.getElementById("congratsOverlay"); if (ov) ov.classList.remove("on"); }
 
